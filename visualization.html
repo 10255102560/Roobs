@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>菜鸟驿站配送调度系统 - 可视化</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: #e8ecf1;
+  color: #2c3e50;
+  overflow: hidden;
+  height: 100vh;
+}
+#app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  grid-template-rows: 56px 1fr 260px;
+  height: 100vh;
+}
+#header {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f3f5 100%);
+  border-bottom: 2px solid #ff6b35;
+  display: flex; align-items: center; padding: 0 24px; gap: 16px; z-index: 10;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+#header h1 { font-size: 20px; font-weight: 700; color: #e0552a; }
+#header .badge {
+  background: #fff3ee; border: 1px solid #ffb89a;
+  color: #e0552a; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+}
+#sidebar {
+  background: #f5f6f8; border-right: 1px solid #dde1e6;
+  overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+#sidebar h3 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+  color: #5f6b7a; margin-bottom: 4px; font-weight: 700;
+}
+.section {
+  background: #ffffff; border-radius: 10px; padding: 14px;
+  border: 1px solid #e2e6ea; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.stat-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #4a5568; }
+.stat-row .val { color: #e0552a; font-weight: 700; font-size: 13px; }
+.stat-row .val.green { color: #2e7d32; }
+.stat-row .val.red { color: #c62828; }
+.btn {
+  background: #f0f2f5; border: 1px solid #d0d5dd; color: #4a5568;
+  padding: 6px 13px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  transition: all 0.2s; white-space: nowrap; font-weight: 500;
+}
+.btn:hover { background: #e2e6ea; color: #1a1a2e; }
+.btn.active { background: #ff6b35; border-color: #ff6b35; color: #fff; font-weight: 700; }
+.btn.play { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 700; }
+.btn.play:hover { background: #388e3c; }
+.btn-group { display: flex; flex-wrap: wrap; gap: 5px; }
+#main-panel { position: relative; background: #fafbfc; overflow: hidden; }
+canvas { display: block; }
+.tooltip {
+  position: absolute; pointer-events: none;
+  background: #ffffff; border: 1px solid #ff6b35; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; color: #2c3e50; display: none; z-index: 20;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+#bottom-panel {
+  grid-column: 1 / -1; background: #ffffff; border-top: 1px solid #dde1e6;
+  overflow-y: auto; padding: 12px 20px; font-size: 13px;
+}
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tab {
+  background: #f0f2f5; border: 1px solid #d0d5dd; color: #5f6b7a;
+  padding: 5px 16px; border-radius: 6px 6px 0 0; cursor: pointer;
+  font-size: 12px; transition: all 0.2s; font-weight: 500;
+}
+.tab:hover { color: #2c3e50; background: #e2e6ea; }
+.tab.active { background: #ff6b35; border-color: #ff6b35; color: #fff; font-weight: 700; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  background: #f5f6f8; color: #e0552a; padding: 6px 10px;
+  text-align: left; border-bottom: 2px solid #dde1e6; position: sticky; top: 0;
+  font-weight: 700;
+}
+td { padding: 4px 10px; border-bottom: 1px solid #eef0f3; color: #4a5568; }
+tr:hover td { background: #fff8f5; }
+.route-path {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px; color: #1565c0; font-weight: 500;
+}
+.legend-dot {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle; border: 2px solid rgba(0,0,0,0.1);
+}
+#anim-bar {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #ffffff; border: 1px solid #d0d5dd; border-radius: 20px;
+  padding: 8px 16px; display: flex; align-items: center; gap: 10px; z-index: 15;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+#anim-bar.hidden { display: none; }
+#anim-bar input[type=range] { width: 250px; accent-color: #ff6b35; }
+#anim-bar span { font-size: 12px; color: #4a5568; min-width: 60px; text-align: center; font-weight: 500; }
+.speed-btns { display: flex; gap: 4px; margin-top: 6px; }
+.speed-btns .btn { padding: 3px 10px; font-size: 10px; }
+.speed-btns .btn.active { background: #ff6b35; border-color: #ff6b35; color: #fff; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="header">
+    <h1>🚚 菜鸟驿站配送调度系统</h1>
+    <span class="badge">T1-T6 可视化</span>
+    <span style="flex:1"></span>
+    <label class="btn" id="btn-load" for="file-input" style="cursor:pointer;margin-right:10px;background:#ff6b35;border-color:#ff6b35;color:#fff;font-weight:700;font-size:13px;padding:8px 16px;">📂 加载数据</label>
+    <input type="file" id="file-input" accept=".js,.json" style="display:none" onchange="handleFileSelect(event)">
+    <span id="data-info" style="font-size:12px;color:#5f6b7a;">请加载 visualization_data.js</span>
+  </div>
+
+  <div id="sidebar">
+    <div class="section">
+      <h3>📊 数据概况</h3>
+      <div class="stat-row"><span>节点数</span><span class="val" id="s-nodes">-</span></div>
+      <div class="stat-row"><span>边数</span><span class="val" id="s-edges">-</span></div>
+      <div class="stat-row"><span>包裹数</span><span class="val" id="s-pkgs">-</span></div>
+      <div class="stat-row"><span>速度 / 容量</span><span class="val" id="s-car">-</span></div>
+    </div>
+    <div class="section">
+      <h3>🎯 任务结果</h3>
+      <div class="stat-row"><span>T2 不满意度</span><span class="val green" id="r-t2">-</span></div>
+      <div class="stat-row"><span>T3 总成本</span><span class="val" id="r-t3-cost">-</span></div>
+      <div class="stat-row"><span>T3 超时数</span><span class="val red" id="r-t3-to">-</span></div>
+      <div class="stat-row"><span>T4 退货距离</span><span class="val" id="r-t4">-</span></div>
+      <div class="stat-row"><span>T5 双车成本</span><span class="val" id="r-t5">-</span></div>
+    </div>
+    <div class="section">
+      <h3>🗺️ 视图切换</h3>
+      <div class="btn-group" id="view-controls">
+        <button class="btn active" data-view="map">全览</button>
+        <button class="btn" data-view="t1">T1 最短路</button>
+        <button class="btn" data-view="t2">T2 配送</button>
+        <button class="btn" data-view="t3">T3 成本</button>
+        <button class="btn" data-view="t4">T4 退货</button>
+        <button class="btn" data-view="t5">T5 双车</button>
+        <button class="btn" data-view="t6">T6 对比</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>🎬 动画</h3>
+      <div class="btn-group">
+        <button class="btn play" id="btn-play" onclick="toggleAnimation()">▶ 播放</button>
+        <button class="btn" onclick="stepAnimation(1)">⏭ 下一段</button>
+        <button class="btn" onclick="resetAnimation()">↺ 重置</button>
+      </div>
+      <div class="speed-btns">
+        <button class="btn active" data-speed="1" onclick="setSpeed(1, this)">1×</button>
+        <button class="btn" data-speed="2" onclick="setSpeed(2, this)">2×</button>
+        <button class="btn" data-speed="4" onclick="setSpeed(4, this)">4×</button>
+        <button class="btn" data-speed="8" onclick="setSpeed(8, this)">8×</button>
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:#5f6b7a;" id="anim-status">就绪 - 选 T2/T3/T4/T5 后播放</div>
+    </div>
+    <div class="section">
+      <h3>📖 图例</h3>
+      <div style="font-size:11px;line-height:2.1;color:#4a5568;">
+        <div><span class="legend-dot" style="background:#ff6b35;"></span> 驿站 (0号)</div>
+        <div><span class="legend-dot" style="background:#5b8cc9;"></span> 普通节点</div>
+        <div><span class="legend-dot" style="background:#2e7d32;"></span> 目的地</div>
+        <div style="font-size:15px;">🚚 小车</div>
+        <div style="color:#2e7d32;">━━ 车辆1路径</div>
+        <div style="color:#1565c0;">╋╋ 车辆2路径</div>
+        <div style="color:#c62828;">━━ 退货路线</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-panel">
+    <canvas id="map-canvas"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+    <div id="anim-bar" class="hidden">
+      <span id="anim-label">Trip 1</span>
+      <input type="range" id="anim-slider" min="0" max="100" value="0" oninput="seekAnimation(this.value)">
+      <span id="anim-time">0/0</span>
+    </div>
+  </div>
+
+  <div id="bottom-panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="tab-overview">📋 总览</button>
+      <button class="tab" data-tab="tab-t1">T1</button>
+      <button class="tab" data-tab="tab-t2">T2</button>
+      <button class="tab" data-tab="tab-t3">T3</button>
+      <button class="tab" data-tab="tab-t4">T4</button>
+      <button class="tab" data-tab="tab-t5">T5</button>
+      <button class="tab" data-tab="tab-t6">T6</button>
+    </div>
+    <div class="tab-content active" id="tab-overview"></div>
+    <div class="tab-content" id="tab-t1"></div>
+    <div class="tab-content" id="tab-t2"></div>
+    <div class="tab-content" id="tab-t3"></div>
+    <div class="tab-content" id="tab-t4"></div>
+    <div class="tab-content" id="tab-t5"></div>
+    <div class="tab-content" id="tab-t6"></div>
+  </div>
+</div>
+
+<script>
+// ==================== 全局状态 ====================
+let VIS_DATA = null;
+let currentView = 'map';
+let canvas, ctx;
+let animRunning = false;
+let animStep = 0;
+let animTotal = 0;
+let animTimer = null;
+let animPathData = [];
+let animSpeed = 1;
+let carPos = null;
+let carTrail = [];
+
+// ==================== 数据加载 ====================
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  loadDataFile(file);
+}
+
+function loadDataFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const fn = new Function(e.target.result + '; return VIS_DATA;');
+      const data = fn();
+      if (data && data.map) {
+        initApp(data);
+        document.getElementById('data-info').textContent = '✅ 已加载: ' + file.name;
+      } else {
+        alert('文件格式错误：缺少 map 数据');
+      }
+    } catch (err) {
+      alert('解析失败: ' + err.message + '\n请选择 C++ 程序生成的 visualization_data.js 文件');
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('dragover', function(e) { e.preventDefault(); });
+document.addEventListener('drop', function(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && (file.name.endsWith('.js') || file.name.endsWith('.json'))) loadDataFile(file);
+});
+
+function loadVisualizationData() {
+  if (typeof VIS_DATA !== 'undefined' && VIS_DATA && VIS_DATA.map) { initApp(VIS_DATA); return; }
+  document.getElementById('data-info').textContent = '⚠ 未找到数据 — 点击「📂 加载数据」选择文件';
+}
+
+function initApp(data) {
+  VIS_DATA = data;
+  document.getElementById('data-info').textContent = '✅ 数据已加载';
+  updateStats();
+  initCanvas();
+  renderAllViews();
+  setupTabs();
+  setupViewButtons();
+  renderAllTabContents();
+  window.addEventListener('resize', () => { initCanvas(); renderAllViews(); });
+}
+
+// ==================== 统计面板 ====================
+function updateStats() {
+  const d = VIS_DATA;
+  document.getElementById('s-nodes').textContent = d.map.nodes.length;
+  document.getElementById('s-edges').textContent = d.map.edges.length;
+  document.getElementById('s-pkgs').textContent = d.packages.length;
+  document.getElementById('s-car').textContent = d.car.speed + ' / ' + d.car.capacity;
+  document.getElementById('r-t2').textContent = d.t2.improved_unsat.toFixed(1);
+  document.getElementById('r-t3-cost').textContent = d.t3.improved_cost.toFixed(0);
+  document.getElementById('r-t3-to').textContent = d.t3.improved_timeout;
+  document.getElementById('r-t4').textContent = d.t4.total_distance ? d.t4.total_distance.toFixed(0) : '-';
+  document.getElementById('r-t5').textContent = d.t5.total_cost ? d.t5.total_cost.toFixed(0) : '-';
+}
+
+// ==================== Canvas ====================
+function initCanvas() {
+  canvas = document.getElementById('map-canvas');
+  const panel = document.getElementById('main-panel');
+  canvas.width = panel.clientWidth;
+  canvas.height = panel.clientHeight;
+  ctx = canvas.getContext('2d');
+}
+
+function transformCoords() {
+  if (!VIS_DATA) return { scale: 1, offsetX: 0, offsetY: 0, minX: 0, maxX: 1, minY: 0, maxY: 1 };
+  const nodes = VIS_DATA.map.nodes;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(n => { if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x; if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y; });
+  const pad = 70;
+  const w = canvas.width - pad * 2, h = canvas.height - pad * 2;
+  const scaleX = (maxX - minX) > 1e-6 ? w / (maxX - minX) : 1;
+  const scaleY = (maxY - minY) > 1e-6 ? h / (maxY - minY) : 1;
+  const scale = Math.min(scaleX, scaleY);
+  const offsetX = pad + (w - (maxX - minX) * scale) / 2;
+  const offsetY = pad + (h - (maxY - minY) * scale) / 2;
+  return { scale, offsetX, offsetY, minX, maxX, minY, maxY };
+}
+
+function toScreen(nodeId) {
+  const t = transformCoords();
+  const n = VIS_DATA.map.nodes[nodeId];
+  return { x: t.offsetX + (n.x - t.minX) * t.scale, y: t.offsetY + (n.y - t.minY) * t.scale };
+}
+
+// ==================== 渲染主入口 ====================
+// 图层顺序（从底到顶）：网格 → 边 → 路线 → 距离标签 → 节点 → 小车
+function renderAllViews() {
+  if (!VIS_DATA) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 第1层：浅色背景网格
+  ctx.strokeStyle = '#e8ecf1'; ctx.lineWidth = 0.5;
+  const gs = 40;
+  for (let x = gs; x < canvas.width; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+  for (let y = gs; y < canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+
+  // 第2层：底图边
+  drawEdges();
+
+  // 第3层：路线（不含节点重绘）
+  let hlSet = null, hlColor = null;
+  if (currentView === 'map') {
+    drawMapHighlight();  // 全览：高亮边+距离气泡
+  } else if (currentView === 't1') {
+    drawT1Paths();
+    hlSet = new Set(VIS_DATA.t1.from_station.map(s => s.dest).filter(d => d !== 0));
+    hlColor = '#2e7d32';
+  } else if (currentView === 't2') {
+    drawT2Routes();
+    hlSet = getT2DestSet(); hlColor = '#2e7d32';
+  } else if (currentView === 't3') {
+    drawT3Routes();
+    hlSet = getT3DestSet(); hlColor = '#2e7d32';
+  } else if (currentView === 't4') {
+    drawT4Route();
+    hlSet = new Set(VIS_DATA.t4.return_stops || []); hlColor = '#c62828';
+  } else if (currentView === 't5') {
+    drawT5Routes();
+    hlSet = getT5DestSet(); hlColor = '#2e7d32';
+  } else if (currentView === 't6') {
+    drawT6Comparison();
+    hlSet = new Set(VIS_DATA.packages.map(p => p.dest)); hlColor = '#2e7d32';
+  }
+
+  // 第4层：节点（永远在最上面，不被路线遮挡）
+  drawNodes(hlSet, hlColor);
+
+  // 第5层：小车（最上面）
+  if (carPos) drawCar(carPos.x, carPos.y, carPos.angle);
+}
+
+// ==================== 全览模式：突出显示所有边 + 大距离标签（不画节点，节点由外层画） ====================
+function drawMapHighlight() {
+  // 距离标签（白色气泡）— 先画，让节点盖住
+  VIS_DATA.map.edges.forEach(e => {
+    const a = toScreen(e.u), b = toScreen(e.v);
+
+    // 边线
+    ctx.strokeStyle = '#b0bec5';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    // 距离标签 — 偏移到边的一侧，避开节点位置
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const offsetX = -dy / (dist || 1) * 16;
+    const offsetY = dx / (dist || 1) * 16;
+    const mx = (a.x + b.x) / 2 + offsetX;
+    const my = (a.y + b.y) / 2 + offsetY;
+    const label = e.w.toFixed(1);
+    ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+    const textW = ctx.measureText(label).width;
+
+    // 白色圆角背景
+    const bw = textW + 10, bh = 17;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#b0bec5';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.roundRect(mx - bw/2, my - bh/2, bw, bh, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    // 距离文字
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx, my);
+  });
+
+  // 标题
+  ctx.fillStyle = '#5f6b7a';
+  ctx.font = 'bold 13px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('校园地图全览 — 白色气泡为距离，节点编号在最上层', canvas.width - 30, 28);
+}
+
+// ==================== 绘制边（默认） ====================
+function drawEdges() {
+  if (currentView === 'map') return;  // map 模式由 drawMapHighlight 处理
+  VIS_DATA.map.edges.forEach(e => {
+    const a = toScreen(e.u), b = toScreen(e.v);
+    ctx.strokeStyle = '#d5dbe3';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const nx = -dy/dist * 9, ny = dx/dist * 9;
+
+    // 小号标签（白色底）
+    const label = e.w.toFixed(1);
+    ctx.font = 'bold 10px "Segoe UI","Microsoft YaHei",sans-serif';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = '#ffffffcc';
+    ctx.fillRect(mx + nx - tw/2 - 4, my + ny - 8, tw + 8, 14);
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx + nx, my + ny);
+  });
+}
+
+// ==================== 绘制节点 ====================
+function drawNodes(highlightSet, hlColor) {
+  VIS_DATA.map.nodes.forEach(n => {
+    const pos = toScreen(n.id);
+    const isHL = highlightSet && highlightSet.has(n.id);
+    const r = n.is_station ? 17 : (isHL ? 14 : 11);
+
+    // 阴影
+    ctx.beginPath(); ctx.arc(pos.x + 1, pos.y + 2, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fill();
+
+    // 主体
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+    if (n.is_station) {
+      const grad = ctx.createRadialGradient(pos.x-3, pos.y-3, r*0.1, pos.x, pos.y, r);
+      grad.addColorStop(0, '#ff8a5c'); grad.addColorStop(1, '#e0552a');
+      ctx.fillStyle = grad;
+    } else if (isHL) {
+      ctx.fillStyle = hlColor || '#2e7d32';
+    } else {
+      ctx.fillStyle = '#5b8cc9';
+    }
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    // 标签
+    if (n.is_station) {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px "Segoe UI","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🏠', pos.x, pos.y);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px "Segoe UI","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.id, pos.x, pos.y);
+    }
+
+    // 下方编号标签
+    ctx.fillStyle = '#5f6b7a';
+    ctx.font = '10px "Segoe UI","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('#'+n.id, pos.x, pos.y + r + 13);
+  });
+}
+
+// ==================== 路线绘制（增强版） ====================
+function drawPath(pathNodes, color, lineWidth, dashPattern) {
+  if (!pathNodes || pathNodes.length < 2) return;
+
+  // 外层发光
+  ctx.strokeStyle = color + '33';
+  ctx.lineWidth = (lineWidth || 4) + 7;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (dashPattern) ctx.setLineDash(dashPattern); else ctx.setLineDash([]);
+  ctx.beginPath();
+  const s0 = toScreen(pathNodes[0]); ctx.moveTo(s0.x, s0.y);
+  for (let i = 1; i < pathNodes.length; i++) { const p = toScreen(pathNodes[i]); ctx.lineTo(p.x, p.y); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 中层浅色
+  ctx.strokeStyle = color + '66';
+  ctx.lineWidth = (lineWidth || 4) + 3;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (dashPattern) ctx.setLineDash(dashPattern); else ctx.setLineDash([]);
+  ctx.beginPath();
+  const s1 = toScreen(pathNodes[0]); ctx.moveTo(s1.x, s1.y);
+  for (let i = 1; i < pathNodes.length; i++) { const p = toScreen(pathNodes[i]); ctx.lineTo(p.x, p.y); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 主线
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth || 4.5;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (dashPattern) ctx.setLineDash(dashPattern); else ctx.setLineDash([]);
+  ctx.beginPath();
+  const start = toScreen(pathNodes[0]); ctx.moveTo(start.x, start.y);
+  for (let i = 1; i < pathNodes.length; i++) { const p = toScreen(pathNodes[i]); ctx.lineTo(p.x, p.y); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 方向箭头
+  for (let i = 1; i < pathNodes.length; i++) {
+    const a = toScreen(pathNodes[i - 1]), b = toScreen(pathNodes[i]);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const segLen = Math.sqrt(dx*dx+dy*dy);
+    const arrowCount = Math.max(1, Math.floor(segLen / 45));
+    for (let j = 1; j <= arrowCount; j++) {
+      const t = j / (arrowCount + 1);
+      drawBigArrow(a.x + dx * t, a.y + dy * t, Math.atan2(dy, dx), color);
+    }
+  }
+
+  // 每段路画距离标签（白色气泡，偏移到路径侧面较远处避免遮挡节点）
+  for (let i = 1; i < pathNodes.length; i++) {
+    const a = toScreen(pathNodes[i - 1]), b = toScreen(pathNodes[i]);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const segLen = Math.sqrt(dx*dx+dy*dy);
+    // 标签偏移到路径垂直方向，距离为 20px
+    const nx = -dy / (segLen || 1) * 20;
+    const ny = dx / (segLen || 1) * 20;
+    const mx = (a.x + b.x) / 2 + nx;
+    const my = (a.y + b.y) / 2 + ny;
+
+    // 计算屏幕距离对应的实际距离
+    const screenDist = segLen / (transformCoords().scale || 1);
+    const label = screenDist.toFixed(1);
+    ctx.font = 'bold 10px "Segoe UI","Microsoft YaHei",sans-serif';
+    const tw = ctx.measureText(label).width;
+
+    // 白色不透明背景
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    const bw = tw + 10, bh = 15;
+    ctx.beginPath();
+    ctx.roundRect(mx - bw/2, my - bh/2, bw, bh, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#1e293b';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx, my);
+  }
+}
+
+function drawBigArrow(x, y, angle, color) {
+  const size = 11;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size*0.6, -size*0.7);
+  ctx.lineTo(-size*0.15, 0);
+  ctx.lineTo(-size*0.6, size*0.7);
+  ctx.closePath();
+  ctx.fill();
+  // 箭头描边
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ==================== 画小车 🚚 ====================
+function drawCar(x, y, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (angle !== undefined && angle !== null) ctx.rotate(angle);
+
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(-13, -6, 26, 16);
+
+  // 车身
+  const grad = ctx.createLinearGradient(0, -9, 0, 9);
+  grad.addColorStop(0, '#ff9800'); grad.addColorStop(0.5, '#ff6b35'); grad.addColorStop(1, '#e0552a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(-11, -9, 22, 18);
+
+  // 车窗
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(5, -7, 7, 6);
+
+  // 货厢
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-11, -4, 10, 12);
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 8px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('📦', -6, 2);
+
+  // 轮子
+  ctx.fillStyle = '#333';
+  ctx.beginPath(); ctx.arc(-6, 10, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6, 10, 4, 0, Math.PI*2); ctx.fill();
+
+  // 前灯
+  ctx.fillStyle = '#FFEB3B';
+  ctx.beginPath(); ctx.arc(11, -5, 2.5, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// ==================== T1 最短路 ====================
+function drawT1Paths() {
+  if (!VIS_DATA.t1) return;
+  const colors = ['#2e7d32', '#1565c0', '#e65100', '#ad1457', '#6a1b9a', '#00838f'];
+  VIS_DATA.t1.from_station.forEach((item, i) => {
+    if (item.dest === 0) return;
+    drawPath(item.path.split(' -> ').map(Number), colors[i % colors.length], 4, [7, 3.5]);
+  });
+
+  ctx.fillStyle = '#5f6b7a';
+  ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('各节点最短路径', canvas.width - 30, 28);
+}
+
+// ==================== T2 ====================
+function getT2DestSet() {
+  const s = new Set();
+  (VIS_DATA.t2.improved_trip_details || []).forEach(t => t.route_nodes.forEach(n => s.add(n)));
+  return s;
+}
+function drawT2Routes() {
+  const trips = VIS_DATA.t2.improved_trip_details || [];
+  const colors = ['#2e7d32', '#1565c0', '#e65100', '#ad1457', '#6a1b9a', '#00838f', '#bf360c', '#37474f'];
+  trips.forEach(trip => {
+    drawPath(trip.full_route, colors[(trip.trip_id-1) % colors.length], 4.5, []);
+  });
+
+  trips.forEach(trip => {
+    if (trip.route_nodes.length > 0) {
+      const mid = toScreen(trip.route_nodes[Math.floor(trip.route_nodes.length/2)]);
+      const clr = colors[(trip.trip_id-1) % colors.length];
+      const label = 'T2-趟'+trip.trip_id;
+      ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = '#ffffffcc'; ctx.fillRect(mid.x-tw/2-6, mid.y-24, tw+12, 18);
+      ctx.fillStyle = clr; ctx.textAlign = 'center';
+      ctx.fillText(label, mid.x, mid.y - 14);
+    }
+  });
+}
+
+// ==================== T3 ====================
+function getT3DestSet() {
+  const s = new Set();
+  (VIS_DATA.t3.improved_trip_details || []).forEach(t => t.route_nodes.forEach(n => s.add(n)));
+  return s;
+}
+function drawT3Routes() {
+  const trips = VIS_DATA.t3.improved_trip_details || [];
+  const colors = ['#e65100', '#2e7d32', '#1565c0', '#ad1457', '#6a1b9a', '#00838f'];
+  trips.forEach(trip => {
+    drawPath(trip.full_route, colors[(trip.trip_id-1) % colors.length], 4.5, []);
+  });
+
+  trips.forEach(trip => {
+    if (trip.route_nodes.length > 0) {
+      const mid = toScreen(trip.route_nodes[Math.floor(trip.route_nodes.length/2)]);
+      const clr = colors[(trip.trip_id-1) % colors.length];
+      const label = 'T3-趟'+trip.trip_id;
+      ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = '#ffffffcc'; ctx.fillRect(mid.x-tw/2-6, mid.y-24, tw+12, 18);
+      ctx.fillStyle = clr; ctx.textAlign = 'center';
+      ctx.fillText(label, mid.x, mid.y - 14);
+    }
+  });
+}
+
+// ==================== T4 ====================
+function drawT4Route() {
+  const stops = VIS_DATA.t4.return_stops || [];
+  const route = VIS_DATA.t4.full_route || [];
+  drawPath(route, '#c62828', 5, []);
+
+  ctx.fillStyle = '#c62828';
+  ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('退货回收路线 (TSP)', canvas.width - 30, 28);
+}
+
+// ==================== T5 ====================
+function getT5DestSet() {
+  const s = new Set();
+  (VIS_DATA.t5.car1_trips||[]).forEach(t => t.full_route.forEach(n => { if(n!==0) s.add(n); }));
+  (VIS_DATA.t5.car2_trips||[]).forEach(t => t.full_route.forEach(n => { if(n!==0) s.add(n); }));
+  return s;
+}
+function drawT5Routes() {
+  const trips1 = VIS_DATA.t5.car1_trips || [];
+  const trips2 = VIS_DATA.t5.car2_trips || [];
+
+  trips1.forEach(trip => drawPath(trip.full_route, '#2e7d32', 4.5, []));
+  trips2.forEach(trip => drawPath(trip.full_route, '#1565c0', 4.5, [9, 4.5]));
+
+  // 图例框
+  const lx = 15, ly = canvas.height - 52;
+  ctx.fillStyle = '#ffffffcc'; ctx.strokeStyle = '#d0d5dd'; ctx.lineWidth = 1.5;
+  ctx.fillRect(lx, ly, 145, 36); ctx.strokeRect(lx, ly, 145, 36);
+  ctx.fillStyle = '#2e7d32'; ctx.font = 'bold 12px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('━━ 车辆1', lx + 10, ly + 14);
+  ctx.fillStyle = '#1565c0';
+  ctx.fillText('╋╋ 车辆2', lx + 10, ly + 28);
+}
+
+// ==================== T6 ====================
+function drawT6Comparison() {
+  if (!VIS_DATA.t6 || !VIS_DATA.t6.scenarios) return;
+
+  const t6 = VIS_DATA.t6;
+  const sc = t6.scenarios;
+
+  // 标题
+  ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 15px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('T6 策略对比实验 — T3 运送成本', canvas.width / 2, 28);
+
+  // 柱状图
+  const chartX = 40, chartY = 50, chartW = canvas.width - 80, chartH = 170;
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#d0d5dd'; ctx.lineWidth = 1.5;
+  ctx.fillRect(chartX, chartY, chartW, chartH); ctx.strokeRect(chartX, chartY, chartW, chartH);
+
+  const barCount = sc.length * 2;
+  const barGap = 12, barW = Math.max(20, (chartW - barGap * (barCount + 1)) / barCount);
+  const maxCost = Math.max(...sc.map(s => Math.max(s.t3_baseline_cost, s.t3_improved_cost)));
+
+  sc.forEach((s, si) => {
+    const bx = chartX + barGap + si * 2 * (barW + barGap);
+    const bh1 = Math.max(2, (s.t3_baseline_cost / maxCost) * (chartH - 45));
+    const bh2 = Math.max(2, (s.t3_improved_cost / maxCost) * (chartH - 45));
+
+    // 基线柱
+    ctx.fillStyle = '#5b8cc9';
+    ctx.fillRect(bx, chartY + chartH - 25 - bh1, barW, bh1);
+    ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 10px "Segoe UI","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.t3_baseline_cost.toFixed(0), bx + barW/2, chartY + chartH - 27 - bh1);
+
+    // 改进柱
+    const ix = bx + barW + barGap;
+    ctx.fillStyle = '#2e7d32';
+    ctx.fillRect(ix, chartY + chartH - 25 - bh2, barW, bh2);
+    ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 10px "Segoe UI","Microsoft YaHei",sans-serif';
+    ctx.fillText(s.t3_improved_cost.toFixed(0), ix + barW/2, chartY + chartH - 27 - bh2);
+
+    // 场景名
+    ctx.fillStyle = '#4a5568'; ctx.font = '10px "Microsoft YaHei",sans-serif';
+    ctx.fillText(s.name, (bx + ix + barW) / 2, chartY + chartH - 8);
+  });
+
+  // 图例
+  const legY = chartY + chartH + 12;
+  ctx.fillStyle = '#5b8cc9'; ctx.fillRect(chartX + 60, legY, 14, 14);
+  ctx.fillStyle = '#4a5568'; ctx.font = '12px "Microsoft YaHei",sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('基线策略', chartX + 80, legY + 11);
+  ctx.fillStyle = '#2e7d32'; ctx.fillRect(chartX + 155, legY, 14, 14);
+  ctx.fillText('改进策略', chartX + 175, legY + 11);
+}
+
+// ==================== 动画系统 ====================
+function setSpeed(s, btn) {
+  animSpeed = s;
+  document.querySelectorAll('.speed-btns .btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function prepareAnimation(viewType) {
+  animStep = 0; animPathData = []; animTotal = 0; carPos = null; carTrail = [];
+
+  let trips = [];
+  if (viewType === 't2') {
+    trips = (VIS_DATA.t2.improved_trip_details || []).map(t => ({...t, prefix: 'T2', color: '#2e7d32'}));
+  } else if (viewType === 't3') {
+    trips = (VIS_DATA.t3.improved_trip_details || []).map(t => ({...t, prefix: 'T3', color: '#e65100'}));
+  } else if (viewType === 't4') {
+    trips = [{trip_id:1, full_route:VIS_DATA.t4.full_route||[], depart:0, return:VIS_DATA.t4.total_time||0, prefix:'T4', color:'#c62828'}];
+  } else if (viewType === 't5') {
+    (VIS_DATA.t5.car1_trips||[]).forEach(t => trips.push({...t, prefix:'车1', color:'#2e7d32'}));
+    (VIS_DATA.t5.car2_trips||[]).forEach(t => trips.push({...t, prefix:'车2', color:'#1565c0'}));
+  }
+
+  trips.forEach(trip => {
+    if (!trip.full_route || trip.full_route.length < 2) return;
+    animPathData.push({
+      label: `${trip.prefix} 趟${trip.trip_id}`,
+      route: trip.full_route,
+      color: trip.color,
+      duration: Math.max(500, ((trip.return||10)-(trip.depart||0))*1000)
+    });
+  });
+
+  animTotal = animPathData.length;
+  if (animTotal > 0) {
+    document.getElementById('anim-bar').classList.remove('hidden');
+    document.getElementById('anim-slider').max = animTotal;
+    document.getElementById('anim-slider').value = 0;
+    updateAnimUI();
+  }
+}
+
+function updateAnimUI() {
+  if (animTotal === 0) return;
+  const idx = Math.min(animStep, animTotal-1);
+  document.getElementById('anim-label').textContent = animPathData[idx] ? animPathData[idx].label : '';
+  document.getElementById('anim-time').textContent = animStep+'/'+animTotal;
+  document.getElementById('anim-slider').value = animStep;
+}
+
+function toggleAnimation() {
+  if (animTotal===0) { prepareAnimation(currentView); if (animTotal===0) return; }
+  if (animRunning) {
+    animRunning=false; if(animTimer)clearTimeout(animTimer);
+    document.getElementById('btn-play').textContent='▶ 播放';
+    document.getElementById('btn-play').classList.remove('play');
+    document.getElementById('anim-status').textContent='已暂停';
+  } else {
+    if(animStep>=animTotal) animStep=0;
+    animRunning=true;
+    document.getElementById('btn-play').textContent='⏸ 暂停';
+    document.getElementById('btn-play').classList.add('play');
+    runAnimationStep();
+  }
+}
+
+function resetAnimation() {
+  animRunning=false; if(animTimer)clearTimeout(animTimer);
+  animStep=0; animTotal=0; animPathData=[];
+  carPos=null; carTrail=[];
+  document.getElementById('btn-play').textContent='▶ 播放';
+  document.getElementById('btn-play').classList.remove('play');
+  document.getElementById('anim-bar').classList.add('hidden');
+  document.getElementById('anim-status').textContent='就绪 - 选 T2/T3/T4/T5 后播放';
+  renderAllViews();
+}
+
+function seekAnimation(val) {
+  animRunning=false; if(animTimer)clearTimeout(animTimer);
+  document.getElementById('btn-play').textContent='▶ 播放';
+  document.getElementById('btn-play').classList.remove('play');
+  animStep=parseInt(val);
+  if (animStep>0 && animStep<=animPathData.length) {
+    const pd=animPathData[animStep-1];
+    const ln=pd.route[pd.route.length-1];
+    if(ln!==undefined){ const pos=toScreen(ln); carPos={x:pos.x,y:pos.y,angle:0}; }
+  } else { carPos=null; }
+  renderAllViews();
+  updateAnimUI();
+  document.getElementById('anim-status').textContent=animStep>0?animPathData[animStep-1].label:'就绪';
+}
+
+let animSubStep=0;
+let animSubTotal=40;
+
+function runAnimationStep() {
+  if (!animRunning) return;
+  if (animStep>=animTotal) {
+    animRunning=false;
+    document.getElementById('btn-play').textContent='▶ 播放';
+    document.getElementById('btn-play').classList.remove('play');
+    document.getElementById('anim-status').textContent='动画完成 ✅';
+    carPos=null; renderAllViews(); return;
+  }
+
+  const pd=animPathData[animStep];
+  const route=pd.route;
+  if (route.length<2) { animStep++; runAnimationStep(); return; }
+
+  const progress=animSubStep/animSubTotal;
+  const totalSegs=route.length-1;
+  const segProgress=progress*totalSegs;
+  const segIdx=Math.min(Math.floor(segProgress), totalSegs-1);
+  const segFrac=segProgress-segIdx;
+
+  const a=toScreen(route[segIdx]), b=toScreen(route[segIdx+1]);
+  const cx=a.x+(b.x-a.x)*segFrac, cy=a.y+(b.y-a.y)*segFrac;
+  const angle=Math.atan2(b.y-a.y, b.x-a.x);
+
+  carPos={x:cx, y:cy, angle:angle};
+  carTrail.push({x:cx,y:cy});
+  if (carTrail.length>30) carTrail.shift();
+
+  renderAllViews();
+
+  // 已走过路段高亮
+  ctx.strokeStyle=pd.color;
+  ctx.lineWidth=6; ctx.lineCap='round'; ctx.setLineDash([]);
+  ctx.beginPath();
+  const rs=toScreen(route[0]); ctx.moveTo(rs.x,rs.y);
+  for (let i=1; i<=segIdx; i++) { const p=toScreen(route[i]); ctx.lineTo(p.x,p.y); }
+  ctx.lineTo(cx,cy); ctx.stroke();
+
+  // 拖尾
+  if (carTrail.length>2) {
+    ctx.strokeStyle='rgba(255,152,0,0.25)';
+    ctx.lineWidth=7;
+    ctx.beginPath(); ctx.moveTo(carTrail[0].x,carTrail[0].y);
+    for(let i=1;i<carTrail.length;i++) ctx.lineTo(carTrail[i].x,carTrail[i].y);
+    ctx.stroke();
+  }
+
+  // 小车
+  drawCar(cx,cy,angle);
+
+  animSubStep++;
+  if (animSubStep>=animSubTotal) { animSubStep=0; animStep++; carTrail=[]; }
+  updateAnimUI();
+  document.getElementById('anim-status').textContent=pd.label+' ('+Math.round(progress*100)+'%)';
+  document.getElementById('anim-slider').value=animStep+progress/animSubTotal;
+
+  const frameTime=Math.max(30, (pd.duration/animSubTotal)/animSpeed);
+  animTimer=setTimeout(runAnimationStep, frameTime);
+}
+
+// ==================== 交互 ====================
+canvas.addEventListener('mousemove', (e) => {
+  if (!VIS_DATA) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  let hoverNode=-1, minDist=400;
+  VIS_DATA.map.nodes.forEach(n => {
+    const pos=toScreen(n.id);
+    const d=(mx-pos.x)**2+(my-pos.y)**2;
+    if (d<minDist){ minDist=d; hoverNode=n.id; }
+  });
+  const tooltip=document.getElementById('tooltip');
+  if (hoverNode>=0 && minDist<500) {
+    const n=VIS_DATA.map.nodes[hoverNode];
+    const t1Info=VIS_DATA.t1?VIS_DATA.t1.from_station.find(s=>s.dest===hoverNode):null;
+    tooltip.style.display='block';
+    tooltip.style.left=(mx+15)+'px'; tooltip.style.top=(my-15)+'px';
+    tooltip.innerHTML=`<b>节点 ${n.id}</b> ${n.is_station?'🏠 驿站':''}<br>坐标: (${n.x.toFixed(0)}, ${n.y.toFixed(0)})<br>距驿站: ${t1Info?t1Info.distance.toFixed(2):'?'}`;
+  } else { tooltip.style.display='none'; }
+});
+canvas.addEventListener('mouseleave', ()=>{ document.getElementById('tooltip').style.display='none'; });
+
+function setupViewButtons() {
+  document.querySelectorAll('#view-controls .btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#view-controls .btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      animRunning=false; if(animTimer)clearTimeout(animTimer);
+      document.getElementById('btn-play').textContent='▶ 播放';
+      document.getElementById('btn-play').classList.remove('play');
+      animTotal=0; animPathData=[]; carPos=null; carTrail=[];
+      document.getElementById('anim-bar').classList.add('hidden');
+      document.getElementById('anim-status').textContent='就绪 - 选 T2/T3/T4/T5 后播放';
+      currentView=btn.dataset.view;
+      renderAllViews();
+      if (['t2','t3','t4','t5'].includes(currentView)) {
+        prepareAnimation(currentView);
+        document.getElementById('anim-status').textContent='已加载 '+animTotal+' 段行程，点击 ▶ 播放';
+      }
+    });
+  });
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+      tab.classList.add('active');
+      const target=document.getElementById(tab.dataset.tab);
+      if(target) target.classList.add('active');
+    });
+  });
+}
+
+// ==================== Tab 内容 ====================
+function renderAllTabContents() {
+  if (!VIS_DATA) return;
+  renderOverviewTab(); renderT1Tab(); renderT2Tab();
+  renderT3Tab(); renderT4Tab(); renderT5Tab(); renderT6Tab();
+}
+
+function renderOverviewTab() {
+  const d=VIS_DATA;
+  let h='<table><tr><th>指标</th><th>基线策略</th><th>改进策略</th><th>改进</th></tr>';
+  h+=`<tr><td>T2 不满意度</td><td>${d.t2.baseline_unsat.toFixed(1)}</td><td style="color:#2e7d32;font-weight:700">${d.t2.improved_unsat.toFixed(1)}</td><td style="color:#2e7d32">${((d.t2.baseline_unsat-d.t2.improved_unsat)/Math.max(1,d.t2.baseline_unsat)*100).toFixed(1)}%</td></tr>`;
+  h+=`<tr><td>T3 总成本</td><td>${d.t3.baseline_cost.toFixed(0)}</td><td style="color:#2e7d32;font-weight:700">${d.t3.improved_cost.toFixed(0)}</td><td style="color:#2e7d32">${((d.t3.baseline_cost-d.t3.improved_cost)/Math.max(1,d.t3.baseline_cost)*100).toFixed(1)}%</td></tr>`;
+  h+=`<tr><td>T3 超时数</td><td>${d.t3.baseline_timeout}</td><td>${d.t3.improved_timeout}</td><td>${d.t3.baseline_timeout-d.t3.improved_timeout}</td></tr>`;
+  h+=`<tr><td>T4 退货距离</td><td colspan="2">${d.t4.total_distance?d.t4.total_distance.toFixed(1):'N/A'}</td><td>-</td></tr>`;
+  h+=`<tr><td>T5 双车成本</td><td colspan="2">${d.t5.total_cost?d.t5.total_cost.toFixed(0):'N/A'}</td><td>-</td></tr>`;
+  h+='</table>';
+  document.getElementById('tab-overview').innerHTML=h;
+}
+
+function renderT1Tab() {
+  if (!VIS_DATA.t1) return;
+  let h='<table><tr><th>目标</th><th>距离</th><th>路径</th></tr>';
+  VIS_DATA.t1.from_station.forEach(item => {
+    h+=`<tr><td>${item.dest}</td><td>${item.distance.toFixed(4)}</td><td class="route-path">${item.path}</td></tr>`;
+  });
+  h+='</table>';
+  document.getElementById('tab-t1').innerHTML=h;
+}
+
+function tripTable(trips, label) {
+  if (!trips||trips.length===0) return '<p>无数据</p>';
+  let h=`<table><tr><th>趟</th><th>出发</th><th>返回</th><th>载重</th><th>包裹</th><th>路径</th></tr>`;
+  trips.forEach(t => {
+    h+=`<tr><td>${label}#${t.trip_id}</td><td>${t.depart.toFixed(2)}</td><td>${t.return.toFixed(2)}</td><td>${t.load.toFixed(1)}</td><td>${t.package_ids.join(', ')}</td><td class="route-path">${t.full_route.join(' → ')}</td></tr>`;
+  });
+  h+='</table>';
+  return h;
+}
+
+function renderT2Tab() {
+  const d=VIS_DATA.t2;
+  document.getElementById('tab-t2').innerHTML=
+    `<p><b>基线:</b> 不满意度=${d.baseline_unsat.toFixed(1)}, ${d.baseline_trips}趟</p>`+
+    tripTable(d.baseline_trip_details,'基线')+
+    `<p style="margin-top:12px;"><b>改进:</b> 不满意度=<span style="color:#2e7d32;font-weight:700">${d.improved_unsat.toFixed(1)}</span>, ${d.improved_trips}趟</p>`+
+    tripTable(d.improved_trip_details,'改进');
+}
+
+function renderT3Tab() {
+  const d=VIS_DATA.t3;
+  document.getElementById('tab-t3').innerHTML=
+    `<p><b>基线:</b> 成本=${d.baseline_cost.toFixed(0)}, 超时=${d.baseline_timeout}</p>`+
+    tripTable(d.baseline_trip_details,'基线')+
+    `<p style="margin-top:12px;"><b>改进:</b> 成本=<span style="color:#2e7d32;font-weight:700">${d.improved_cost.toFixed(0)}</span>, 超时=${d.improved_timeout}</p>`+
+    tripTable(d.improved_trip_details,'改进');
+}
+
+function renderT4Tab() {
+  const d=VIS_DATA.t4;
+  document.getElementById('tab-t4').innerHTML=
+    `<p>退货点: ${(d.return_stops||[]).join(', ')||'无'} | 访问顺序: ${(d.visit_order||[]).join(' → ')}</p>
+     <p>路径: <span class="route-path">${(d.full_route||[]).join(' → ')}</span></p>
+     <p>总距离: ${d.total_distance.toFixed(2)} | 总耗时: ${d.total_time.toFixed(2)}</p>`;
+}
+
+function renderT5Tab() {
+  const d=VIS_DATA.t5;
+  document.getElementById('tab-t5').innerHTML=
+    `<p>双车总成本: <b>${d.total_cost?d.total_cost.toFixed(0):'N/A'}</b> | 超时: ${d.timeout_count||0} | 完成时间: ${d.finish_time?d.finish_time.toFixed(2):'N/A'}</p>
+     <p>车辆1: ${d.car1_package_count||0}包 | 车辆2: ${d.car2_package_count||0}包</p>
+     <p style="color:#2e7d32;font-weight:700;">车辆1:</p>`+tripTable(d.car1_trips,'车1')+
+    `<p style="color:#1565c0;font-weight:700;margin-top:8px;">车辆2:</p>`+tripTable(d.car2_trips,'车2');
+}
+
+function renderT6Tab() {
+  const sc=VIS_DATA.t6.scenarios||[];
+  let h='<table><tr><th>场景</th><th>T2基线</th><th>T2改进</th><th>T3基线成本</th><th>T3改进成本</th><th>基线超时</th><th>改进超时</th></tr>';
+  sc.forEach(s => {
+    h+=`<tr><td>${s.name}</td><td>${s.t2_baseline_unsat.toFixed(1)}</td><td style="color:#2e7d32;font-weight:700">${s.t2_improved_unsat.toFixed(1)}</td><td>${s.t3_baseline_cost.toFixed(0)}</td><td style="color:#2e7d32;font-weight:700">${s.t3_improved_cost.toFixed(0)}</td><td>${s.t3_baseline_timeout}</td><td style="color:${s.t3_improved_timeout<s.t3_baseline_timeout?'#2e7d32':'#c62828'};font-weight:700">${s.t3_improved_timeout}</td></tr>`;
+  });
+  h+='</table>';
+  document.getElementById('tab-t6').innerHTML=h;
+}
+
+// ==================== 启动 ====================
+window.addEventListener('DOMContentLoaded', () => {
+  if (typeof VIS_DATA!=='undefined' && VIS_DATA && VIS_DATA.map) {
+    initApp(VIS_DATA);
+  } else {
+    const script=document.createElement('script');
+    script.src='visualization_data.js';
+    script.onload=()=>{
+      if (typeof VIS_DATA!=='undefined' && VIS_DATA && VIS_DATA.map) initApp(VIS_DATA);
+      else document.getElementById('data-info').textContent='⚠ 未找到 visualization_data.js';
+    };
+    script.onerror=()=>{ document.getElementById('data-info').textContent='⚠ 请点击「📂 加载数据」按钮选择文件'; };
+    document.head.appendChild(script);
+  }
+});
+</script>
+</body>
+</html>
